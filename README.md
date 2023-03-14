@@ -1,11 +1,11 @@
 
 
 
-[![Contributor
-Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](https://www.contributor-covenant.org/version/2/0/code_of_conduct.html)
+[![R-CMD-check](https://github.com/jomulder/shrinkem/workflows/R-CMD-check/badge.svg)](https://github.com/jomulder/shrinkem/actions)
+
 
 The `R` package **shrinkem** implements several Bayesian regularization algorithms
-(e.g., adaptive ridge, adaptivelasso, adaptive horseshoe) when assuming a Gaussian approximation of the estimates and (error) covariance matrix. 
+(e.g., adaptive ridge, adaptivelasso, adaptive horseshoe) and assuming a Gaussian approximation of the estimates and (error) covariance matrix. 
 
 ## Installation
 
