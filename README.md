@@ -1,6 +1,5 @@
 
 
-
 The `R` package **shrinkem** implements several Bayesian regularization algorithms
 (e.g., adaptive ridge, adaptivelasso, adaptive horseshoe) and assuming a Gaussian approximation of the estimates and (error) covariance matrix. 
 
@@ -17,8 +16,6 @@ remotes::install_github("jomulder/shrinkem")
 
 ## Example analyses
 
-# EXAMPLE
-
 ``` r
 estimates <- -5:5
 covmatrix <- diag(11)
@@ -33,7 +30,7 @@ bayesplot::mcmc_trace(shrink1$draws$beta)
 bayesplot::mcmc_areas_ridges(shrink1$draws$beta)
 # Bayesian horseshoe where first two and last two beta's have different global shrinkage parameter
 # than other beta's
-shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,2),rep(2,7),rep(1,2)))
+shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,3),rep(2,5),rep(1,3)))
 # posterior modes of middle five estimates are practically zero
 print(shrink2)
 # show traceplots

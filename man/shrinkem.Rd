@@ -72,7 +72,7 @@ bayesplot::mcmc_trace(shrink1$draws$beta)
 bayesplot::mcmc_areas_ridges(shrink1$draws$beta)
 # Bayesian horseshoe where first two and last two beta's have different global shrinkage parameter
 # than other beta's
-shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,2),rep(2,7),rep(1,2)))
+shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,3),rep(2,5),rep(1,3)))
 # posterior modes of middle five estimates are practically zero
 print(shrink2)
 # show traceplots
