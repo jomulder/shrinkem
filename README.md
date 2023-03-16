@@ -1,7 +1,7 @@
 
 
 The `R` package **shrinkem** implements several Bayesian regularization algorithms
-(e.g., adaptive ridge, adaptivelasso, adaptive horseshoe) and assuming a Gaussian approximation of the estimates and (error) covariance matrix. 
+(e.g., adaptive ridge, adaptive lasso, adaptive horseshoe) and assuming a Gaussian approximation of the estimates and (error) covariance matrix. 
 
 ## Installation
 

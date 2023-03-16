@@ -122,8 +122,8 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
 #' @importFrom brms rinv_gaussian
 normal.horseshoe <- function(estimate, covmatrix, group=1,
                                    iterations = 1e4, burnin = 1e3, store = 10,
-                                   a1 = .5, a2 = 0.5, b2 = 1,
-                                   a3 = .5, a4 = 0.5, b1 = 1){
+                                   a1 = .5, a2 = 0.5, b1 = 1,
+                                   a3 = .5, a4 = 0.5, b2 = 1){
 
   # Define dimensions
   P <- length(estimate) # number of covariates without intercept
