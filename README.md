@@ -20,7 +20,7 @@ remotes::install_github("jomulder/shrinkem")
 estimates <- -5:5
 covmatrix <- diag(11)
 # Bayesian horseshoe where all beta's have the same global shrinkage (using default 'group' argument)
-shrink1 <- shrinkem(estimates, covmatrix, type="horseshoe", group=rep(1,11))
+shrink1 <- shrinkem(estimates, covmatrix, type="horseshoe")
 # posterior modes of middle three estimates are practically zero
 print(shrink1)
 # how traceplots
@@ -28,7 +28,7 @@ bayesplot::mcmc_trace(shrink1$draws$beta)
 # plot posterior densities
 bayesplot::mcmc_areas_ridges(shrink1$draws$beta)
 # Bayesian horseshoe where first three and last three beta's have different global shrinkage
-# parameter than other beta's
+# parameter than other beta's (using the 'group' argument)
 shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,3),rep(2,5),rep(1,3)))
 # posterior modes of middle five estimates are practically zero
 print(shrink2)
