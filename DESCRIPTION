@@ -22,7 +22,7 @@ Description: Implementation of Bayesian regularization algorithms (e.g., adaptiv
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Imports: 
     stats,
     mvtnorm,
@@ -37,4 +37,3 @@ Suggests:
     knitr,
 VignetteBuilder: 
     knitr
-

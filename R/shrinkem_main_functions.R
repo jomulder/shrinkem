@@ -166,6 +166,9 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
   covmatrixInv <- solve(covmatrix)
 
+  #nugget for avoiding singular covariance matrix
+  nugget <- 1e-8
+
   print("Start burnin ... ")
   # Sampler iterations ----
   pb = txtProgressBar(min = 0, max = burnin, initial = 0)
@@ -178,6 +181,7 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
     # Sample tau2
     tau2 <- rinvgamma(P, a3 + .5, psi2 + beta**2/(2*lambda2vec))
+    tau2 <- tau2 + nugget
 
     # Sample psi2 (mixing parameter of tau2)
     psi2 <- stats::rgamma(P, shape = a3 + a4, rate = 1/b2 + 1/tau2)
@@ -210,6 +214,7 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
     # Sample tau2
     tau2 <- rinvgamma(P, a3 + .5, psi2 + beta**2/(2*lambda2vec))
+    tau2 <- tau2 + nugget
 
     # Sample psi2 (mixing parameter of tau2)
     psi2 <- stats::rgamma(P, shape = a3 + a4, rate = 1/b2 + 1/tau2)
@@ -223,6 +228,8 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
+
+    #print(c(tau2,lambda2))
 
     # save each 'store' iterations
     if (t%%store == 0){
