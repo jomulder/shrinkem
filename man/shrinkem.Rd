@@ -16,6 +16,8 @@ shrinkem(
   df1,
   df2,
   scale2,
+  lambda2.fixed,
+  lambda2,
   ...
 )
 }
@@ -49,6 +51,11 @@ distribution. The default is \code{df2 = 1}.}
 \item{scale2}{Second hyperparameter (scale parameter) of the prior for a shrinkage parameter lambda^2, which follows a F(df1,df2,scale2)
 distribution. The default is \code{df2 = 1e3}.}
 
+\item{lambda2.fixed}{Logical indicating whether the penalty parameters(s) is/are fixed. Default is FALSE.}
+
+\item{lambda2}{Positive scalars of length equal to the number of groups in 'group'. The argument is only
+used if the argument 'lambda2.fixed' is 'TRUE'.}
+
 \item{...}{Parameters passed to and from other functions.}
 }
 \description{
@@ -61,7 +68,8 @@ are assumed to follow a Gaussian distribution.
 # EXAMPLE
 estimates <- -5:5
 covmatrix <- diag(11)
-# Bayesian horseshoe where all beta's have the same global shrinkage (using default 'group' argument)
+# Bayesian horseshoe where all beta's have the same global shrinkage
+# (using default 'group' argument)
 shrink1 <- shrinkem(estimates, covmatrix, type="horseshoe")
 # posterior modes of middle three estimates are practically zero
 print(shrink1)
@@ -69,9 +77,11 @@ print(shrink1)
 bayesplot::mcmc_trace(shrink1$draws$beta)
 # plot posterior densities
 bayesplot::mcmc_areas_ridges(shrink1$draws$beta)
-# Bayesian horseshoe where first three and last three beta's have different global shrinkage parameter
+# Bayesian horseshoe where first three and last three beta's have different
+# global shrinkage parameter
 # than other beta's
-shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe", group=c(rep(1,3),rep(2,5),rep(1,3)))
+shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe",
+   group=c(rep(1,3),rep(2,5),rep(1,3)))
 # posterior modes of middle five estimates are practically zero
 print(shrink2)
 # show traceplots

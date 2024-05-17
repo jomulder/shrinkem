@@ -16,9 +16,8 @@ Author: c(person(given = c("Joris"),
              email = "s.j.vanerp@uu.nl")       
              )
 Maintainer: Joris Mulder <j.mulder3@tilburguniversity.edu>
-Description: Implementation of Bayesian regularization algorithms (e.g., adaptive ridge, adaptivelasso, 
-             adaptive horseshoe) when assuming a Gaussian approximation of the estimates and (error)
-             covariance matrix. 
+Description: Approximate Bayesian regularization (e.g., ridge, lasso, 
+             horseshoe) using Gaussian approximations. 
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
