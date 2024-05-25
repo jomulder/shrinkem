@@ -31,7 +31,6 @@ Imports:
     mvtnorm,
     extraDistr,
     brms,
-    bayesplot,
     CholWishart,
     bain,
     matrixcalc
