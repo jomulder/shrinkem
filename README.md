@@ -1,7 +1,7 @@
 
 
 The `R` package **shrinkem** allows approximate Bayesian regularization
-(e.g., ridge, lasso, horseshoe) using a Gaussian approximation and (error) covariance matrix of the estimates of the key parameters.
+(e.g., ridge, lasso, horseshoe) using Gaussian approximations of the errors of the estimates of the key parameters.
 
 ## Installation
 
@@ -43,11 +43,12 @@ bayesplot::mcmc_areas_ridges(shrink2$draws$beta)
 
 You can cite the package and the paper using the following reference
 
-> Karimova, D., Leenders, R., van Erp, S., and Mulder, J. (in prep.)
+> Karimova, D., Leenders, R., van Erp, S., and Mulder, J. (preprint). Honey, I shunk the irrelevant
+effects! Simple and Fast Approximate Bayesian Regularization. 
 
 ## Contributing and Contact Information
 
-If you have ideas, please get involved. You can contribute by opening an
+If you have suggestions, please get involved. You can contribute by opening an
 issue on GitHub, or sending a pull request with proposed features.
 
   - File a GitHub issue [here](https://github.com/jomulder/shrinkem)

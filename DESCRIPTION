@@ -1,20 +1,24 @@
 Package: shrinkem
 Type: Package
 Title: Shrink estimates using Gaussian approximations and Bayesian regularization
+Date: 2024-04-25
 Version: 0.2.0
-Author: c(person(given = c("Joris"),
+Author@R: c(person(given = c("Joris"),
              family = "Mulder",
              role = c("aut", "cre"),
              email = "j.mulder3@tilburguniversity.edu"),
       person(given = "Diana",
              family = "Karimova",
              role = c("aut", "ctb"),
-             email = "d.karimova@tilburguniversity.edu"),
+             email = "dbkarimova@gmail.com"),
       person(given = "Sara",
              family = "van Erp",
              role = c("aut", "ctb"),
              email = "s.j.vanerp@uu.nl")       
              )
+Author: Joris Mulder [aut, cre],
+  Diana Karimova [aut, ctb],
+  Sara van Erp [aut, ctb]
 Maintainer: Joris Mulder <j.mulder3@tilburguniversity.edu>
 Description: Approximate Bayesian regularization (e.g., ridge, lasso, 
              horseshoe) using Gaussian approximations. 
@@ -32,7 +36,4 @@ Imports:
     bain,
     matrixcalc
 Suggests: 
-    testthat,
-    knitr,
-VignetteBuilder: 
-    knitr
+    testthat
