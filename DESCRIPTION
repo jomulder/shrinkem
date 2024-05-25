@@ -1,9 +1,9 @@
 Package: shrinkem
 Type: Package
 Title: Shrink estimates using Gaussian approximations and Bayesian regularization
-Date: 2024-04-25
+Date: 2024-05-25
 Version: 0.2.0
-Author@R: c(person(given = c("Joris"),
+Authors@R: c(person(given = c("Joris"),
              family = "Mulder",
              role = c("aut", "cre"),
              email = "j.mulder3@tilburguniversity.edu"),
