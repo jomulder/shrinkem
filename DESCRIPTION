@@ -32,7 +32,6 @@ Imports:
     extraDistr,
     brms,
     CholWishart,
-    bain,
     matrixcalc
 Suggests: 
     testthat
