@@ -1,7 +1,8 @@
 # shrinkem 0.2.0
 
-* Date: 2024-05-25
+* Date: 2024-10-01
 * New submission
+* Updated title and description
 
 ## Test environments
 * Local OS X Ventura 13.5, R 4.3.2, clang-1400.0.29.202, GNU Fortran 12.2.0

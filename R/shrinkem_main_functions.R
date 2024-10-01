@@ -21,7 +21,7 @@
 #' distribution. The default is \code{df2 = 1e3}.
 #' @param iterations Number of posterior draws after burnin. Default = 5e4.
 #' @param burnin Number of posterior draws in burnin. Default = 1e3.
-#' @param store Store every store-th draw from posterior. Default = 10.
+#' @param store Store every store-th draw from posterior. Default = 1 (implying that every draw is stored).
 #' @param lambda2.fixed Logical indicating whether the penalty parameters(s) is/are fixed. Default is FALSE.
 #' @param lambda2 Positive scalars of length equal to the number of groups in 'group'. The argument is only
 #' used if the argument 'lambda2.fixed' is 'TRUE'.
@@ -81,7 +81,7 @@ shrinkem <- function(x, Sigma, type, group,
 #' @method shrinkem default
 #' @export
 shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
-                     iterations = 5e4, burnin = 1e3, store = 10,
+                     iterations = 5e4, burnin = 1e3, store = 1,
                      cred.level = .95,
                      df1=1, df2=1, scale2=1e3,
                      lambda2.fixed = FALSE,
