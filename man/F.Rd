@@ -23,6 +23,9 @@ rF(n, df1, df2, beta)
 
 \item{n}{number of draws}
 }
+\value{
+\code{dF} gives the probability density of the F distribution. \code{rF} gives random draws from the F distribution.
+}
 \description{
 Density and random generation for the F distribution with first degrees of freedom \code{df1},
 second degrees of freedom \code{df2}, and scale parameter \code{beta}.
@@ -34,4 +37,8 @@ hist(draws_F,500,xlim=c(0,10),freq=FALSE)
 seqx <- seq(0,10,length=1e5)
 lines(seqx,dF(seqx, df1=2, df2=4, beta=1),col=2,lwd=2)
 
+}
+\references{
+Mulder and Pericchi (2018). The Matrix-F Prior for Estimating and Testing Covariance Matrices.
+Bayesian Analysis, 13(4), 1193-1214. <https://doi.org/10.1214/17-BA1092>
 }

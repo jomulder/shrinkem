@@ -23,6 +23,11 @@ rmvF(n, df1, df2, B)
 
 \item{n}{Number of draws}
 }
+\value{
+\code{dmvF} returns the probability density of the matrix F distribution.
+\code{rmvF} returns a numeric array, say \code{R}, of dimension  \eqn{p \times p \times n}, where each element
+\code{R[,,i]} is a positive definite matrix, a realization of the matrix F distribution.
+}
 \description{
 Density and random generation for the matrix variate F distribution with first degrees
 of freedom \code{df1}, second degrees of freedom \code{df2}, and scale matrix \code{B}.
@@ -32,4 +37,8 @@ of freedom \code{df1}, second degrees of freedom \code{df2}, and scale matrix \c
 set.seed(20180222)
 draws_F <- rmvF(n=1, df1=2, df2=4, B=diag(2))
 dmvF(draws_F[,,1], df1=2, df2=4, B=diag(2))
+}
+\references{
+Mulder and Pericchi (2018). The Matrix-F Prior for Estimating and Testing Covariance Matrices.
+Bayesian Analysis, 13(4), 1193-1214. <https://doi.org/10.1214/17-BA1092>
 }

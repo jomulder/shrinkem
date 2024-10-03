@@ -26,8 +26,20 @@
 #' @param lambda2 Positive scalars of length equal to the number of groups in 'group'. The argument is only
 #' used if the argument 'lambda2.fixed' is 'TRUE'.
 #' @param ... Parameters passed to and from other functions.
+#' @return The output is an object of class \code{shrinkem}. The object has elements:
+#' \itemize{
+#' \item \code{estimates}: A data frame with the input estimates, the shrunken posterior mean, median, and mode,
+#' the lower and upperbound of the credbility interval based on the shrunken posterior, and a logical which indicates if
+#' zero is contained in the credibility interval.
+#' \item \code{draws}: List containing the posterior draws of the effects (\code{beta}), the prior parameters (\code{tau2}, \code{gamma2}),
+#' and the penalty parameters (\code{psi2} and \code{lambda2}).
+#' \item \code{dim.est}: The dimension of the input estimates of \code{beta}.
+#' \item \code{input.est}: The input vector of the unshrunken estimates of \code{beta}.
+#' \item \code{call}: Input call.
+#' }
 #' @rdname shrinkem
-#' @references Karimovo, D., Leenders, R., van Erp, S., and Mulder, J. (in prep.).
+#' @references Karimovo, van Erp, Leenders, and Mulder (2024). Honey, I Shrunk the Irrelevant Effects! Simple and Fast Approximate Bayesian
+#' Regularization. <https://doi.org/10.31234/osf.io/2g8qm>
 #' @examples
 #' \donttest{
 #' # EXAMPLE
@@ -37,35 +49,32 @@
 #' # (using default 'group' argument)
 #' shrink1 <- shrinkem(estimates, covmatrix, type="horseshoe")
 #' # posterior modes of middle three estimates are practically zero
-#' print(shrink1)
-#' # show traceplots
-#' par(mfrow=c(3,4))
-#' par(mar=c(2,2,2,2))
-#' for(p in 1:ncol(shrink1$draws$beta)){plot(shrink1$draws$beta[,p],type="l",
-#'   main=colnames(shrink1$draws$beta)[p])}
+#'
 #' # plot posterior densities
-#' par(mfrow=c(11,1))
-#' par(mar=c(1,2,1,2))
+#' old.par.mfrow <- par(mfrow = c(1,1))
+#' old.par.mar <- par(mar = c(0, 0, 0, 0))
+#' par(mfrow = c(11,1))
+#' par(mar = c(1,2,1,2))
 #' for(p in 1:ncol(shrink1$draws$beta)){plot(density(shrink1$draws$beta[,p]),
 #'   xlim=c(-10,10),main=colnames(shrink1$draws$beta)[p])}
+#' par(mfrow = old.par.mfrow)
+#' par(mar = old.par.mar)
+#'
 #' # Bayesian horseshoe where first three and last three beta's have different
-#' # global shrinkage parameter
-#' # than other beta's
+#' # global shrinkage parameter than other beta's
 #' shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe",
 #'    group=c(rep(1,3),rep(2,5),rep(1,3)))
-#' # posterior modes of middle five estimates are practically zero
-#' print(shrink2)
-#' # show traceplots
-#' par(mfrow=c(3,4))
-#' par(mar=c(2,2,2,2))
-#' for(p in 1:ncol(shrink2$draws$beta)){plot(shrink2$draws$beta[,p],type="l",
-#'   main=colnames(shrink2$draws$beta)[p])}
+#' # posterior modes of middle five estimates are virtually zero
+#'
 #' # plot posterior densities
-#' par(mfrow=c(11,1))
-#' par(mar=c(1,2,1,2))
+#' par(mfrow = c(11,1))
+#' par(mar = c(1,2,1,2))
 #' for(p in 1:ncol(shrink2$draws$beta)){plot(density(shrink2$draws$beta[,p]),xlim=c(-10,10),
 #'   main=colnames(shrink2$draws$beta)[p])}
+#' par(mfrow = old.par.mfrow)
+#' par(mar = old.par.mar)
 #' }
+#'
 #' @export
 shrinkem <- function(x, Sigma, type, group,
                      iterations, burnin, store,
@@ -147,7 +156,7 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
 
   # handle output
   estimates <- data.frame(
-      est=x,
+      input.est=x,
       shrunk.mean=apply(Gibbsresults$beta,2,mean),
       shrunk.median=apply(Gibbsresults$beta,2,mean),
       shrunk.mode=apply(Gibbsresults$beta,2,get.mode),
@@ -160,8 +169,8 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
   shrinkem_out <- list(
     estimates=estimates,
     draws=Gibbsresults,
-    dim.beta=length(x),
-    model=x,
+    dim.est=length(x),
+    input.est=x,
     call=match.call()
   )
 
@@ -175,7 +184,6 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
 #' @importFrom stats quantile
 #' @importFrom mvtnorm rmvnorm
 #' @importFrom extraDistr rinvgamma
-#' @importFrom utils txtProgressBar setTxtProgressBar
 #' @importFrom stats rgamma
 #' @importFrom brms rinv_gaussian
 normal.horseshoe <- function(estimate, covmatrix, group=1,
@@ -233,9 +241,9 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
   #nugget for avoiding singular covariance matrix
   nugget <- 1e-8
 
-  print("Start burnin ... ")
+  message("MCMC burnin")
   # Sampler iterations ----
-  pb = txtProgressBar(min = 0, max = burnin, initial = 0)
+  # pb = txtProgressBar(min = 0, max = burnin, initial = 0)
   for (t in 1:burnin){
 
     # Sample beta
@@ -262,14 +270,15 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
 
-    setTxtProgressBar(pb,t)
+    #setTxtProgressBar(pb,t)
 
   }
 
-  cat("\n")
-  print("Start posterior sampling ... ")
+  message("MCMC sampling")
+  #cat("\n")
+  #print("Start posterior sampling ... ")
   # Sampler iterations ----
-  pb = txtProgressBar(min = 0, max = iterations, initial = 0)
+  #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
   storecount <- 0
   for (t in 1:iterations){
 
@@ -313,7 +322,7 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
     }
     ###################
 
-    setTxtProgressBar(pb,t)
+    #setTxtProgressBar(pb,t)
   }
 
   return(list(beta = beta_STORE, tau2 = tau2_STORE, gamma2 = gamma2_STORE,
@@ -373,9 +382,10 @@ normal.lasso <- function(estimate, covmatrix, group=1,
   #nugget for avoiding singular covariance matrix
   #nugget <- 1e-8
 
-  print("Start burnin ... ")
+  #print("Start burnin ... ")
   # Sampler iterations ----
-  pb = txtProgressBar(min = 0, max = burnin, initial = 0)
+  #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
+  message("MCMC burnin")
   for (t in 1:burnin){
     # 1. sample beta
     var_beta <- solve(covmatrixInv + D_inv)
@@ -399,13 +409,14 @@ normal.lasso <- function(estimate, covmatrix, group=1,
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
 
-    setTxtProgressBar(pb,t)
+    #setTxtProgressBar(pb,t)
   }
 
-  cat("\n")
-  print("Start posterior sampling ... ")
+  message("MCMC sampling")
+  #cat("\n")
+  #print("Start posterior sampling ... ")
   # Sampler iterations ----
-  pb = txtProgressBar(min = 0, max = iterations, initial = 0)
+  #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
   storecount <- 0
   for (t in 1:iterations){
     # 1. sample beta
@@ -443,7 +454,7 @@ normal.lasso <- function(estimate, covmatrix, group=1,
     }
     ###################
 
-    setTxtProgressBar(pb,t)
+    #setTxtProgressBar(pb,t)
   }
 
   colnames(beta_STORE) <- names(estimate)
@@ -503,9 +514,10 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
   mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
 
   if(!lambda2.fixed){
-    print("Start burnin ... ")
+    #print("Start burnin ... ")
     # Sampler iterations ----
-    pb = txtProgressBar(min = 0, max = burnin, initial = 0)
+    #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
+    message("MCMC burnin")
     for (t in 1:burnin){
 
       # sample beta
@@ -523,13 +535,14 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
       # update conditional prior covariance matrix
       D_inv <- diag(1/lambda2vec,nrow=P)
 
-      setTxtProgressBar(pb,t)
+      #setTxtProgressBar(pb,t)
     }
 
-    cat("\n")
-    print("Start posterior sampling ... ")
+    #cat("\n")
+    #print("Start posterior sampling ... ")
     # Sampler iterations ----
-    pb = txtProgressBar(min = 0, max = iterations, initial = 0)
+    #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
+    message("MCMC sampling")
     storecount <- 0
     for (t in 1:iterations){
 
@@ -559,7 +572,7 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
       }
       ###################
 
-      setTxtProgressBar(pb,t)
+      #setTxtProgressBar(pb,t)
     }
 
   }else{ # because lambda2 is fixed no iterative sampling is required
@@ -586,6 +599,9 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
 #' @param beta Scale parameter
 #' @param n number of draws
 #' @param log logical; if TRUE, density is given as log(p).
+#' @return \code{dF} gives the probability density of the F distribution. \code{rF} gives random draws from the F distribution.
+#' @references Mulder and Pericchi (2018). The Matrix-F Prior for Estimating and Testing Covariance Matrices.
+#' Bayesian Analysis, 13(4), 1193-1214. <https://doi.org/10.1214/17-BA1092>
 #' @importFrom stats rgamma
 #' @importFrom extraDistr rinvgamma
 #' @name F
@@ -625,6 +641,11 @@ rF <- function(n, df1, df2, beta){
 #' @param B Positive definite scale matrix
 #' @param n Number of draws
 #' @param log logical; if TRUE, density is given as log(p).
+#' @return \code{dmvF} returns the probability density of the matrix F distribution.
+#' \code{rmvF} returns a numeric array, say \code{R}, of dimension  \eqn{p \times p \times n}, where each element
+#' \code{R[,,i]} is a positive definite matrix, a realization of the matrix F distribution.
+#' @references Mulder and Pericchi (2018). The Matrix-F Prior for Estimating and Testing Covariance Matrices.
+#' Bayesian Analysis, 13(4), 1193-1214. <https://doi.org/10.1214/17-BA1092>
 #' @importFrom CholWishart lmvgamma
 #' @importFrom matrixcalc is.positive.definite
 #' @name mvF

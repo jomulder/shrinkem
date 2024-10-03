@@ -36,7 +36,7 @@ a different global shrinkage parameter which is adapted to the observed data.}
 
 \item{burnin}{Number of posterior draws in burnin. Default = 1e3.}
 
-\item{store}{Store every store-th draw from posterior. Default = 10.}
+\item{store}{Store every store-th draw from posterior. Default = 1 (implying that every draw is stored).}
 
 \item{cred.level}{The significance level that is used to check whether a parameter is nonzero depending on whether
 0 is contained in the credible interval. The default is \code{cred.level = 0.95}.}
@@ -58,6 +58,19 @@ used if the argument 'lambda2.fixed' is 'TRUE'.}
 
 \item{...}{Parameters passed to and from other functions.}
 }
+\value{
+The output is an object of class \code{shrinkem}. The object has elements:
+\itemize{
+\item \code{estimates}: A data frame with the input estimates, the shrunken posterior mean, median, and mode,
+the lower and upperbound of the credbility interval based on the shrunken posterior, and a logical which indicates if
+zero is contained in the credibility interval.
+\item \code{draws}: List containing the posterior draws of the effects (\code{beta}), the prior parameters (\code{tau2}, \code{gamma2}),
+and the penalty parameters (\code{psi2} and \code{lambda2}).
+\item \code{dim.est}: The dimension of the input estimates of \code{beta}.
+\item \code{input.est}: The input vector of the unshrunken estimates of \code{beta}.
+\item \code{call}: Input call.
+}
+}
 \description{
 The \code{shrinkem} function can be used for regularizing a vector
 of estimates using Bayesian shrinkage methods where the uncertainty of the estimates
@@ -72,36 +85,34 @@ covmatrix <- diag(11)
 # (using default 'group' argument)
 shrink1 <- shrinkem(estimates, covmatrix, type="horseshoe")
 # posterior modes of middle three estimates are practically zero
-print(shrink1)
-# show traceplots
-par(mfrow=c(3,4))
-par(mar=c(2,2,2,2))
-for(p in 1:ncol(shrink1$draws$beta)){plot(shrink1$draws$beta[,p],type="l",
-  main=colnames(shrink1$draws$beta)[p])}
+
 # plot posterior densities
-par(mfrow=c(11,1))
-par(mar=c(1,2,1,2))
+old.par.mfrow <- par(mfrow = c(1,1))
+old.par.mar <- par(mar = c(0, 0, 0, 0))
+par(mfrow = c(11,1))
+par(mar = c(1,2,1,2))
 for(p in 1:ncol(shrink1$draws$beta)){plot(density(shrink1$draws$beta[,p]),
   xlim=c(-10,10),main=colnames(shrink1$draws$beta)[p])}
+par(mfrow = old.par.mfrow)
+par(mar = old.par.mar)
+
 # Bayesian horseshoe where first three and last three beta's have different
-# global shrinkage parameter
-# than other beta's
+# global shrinkage parameter than other beta's
 shrink2 <- shrinkem(estimates, covmatrix, type="horseshoe",
    group=c(rep(1,3),rep(2,5),rep(1,3)))
-# posterior modes of middle five estimates are practically zero
-print(shrink2)
-# show traceplots
-par(mfrow=c(3,4))
-par(mar=c(2,2,2,2))
-for(p in 1:ncol(shrink2$draws$beta)){plot(shrink2$draws$beta[,p],type="l",
-  main=colnames(shrink2$draws$beta)[p])}
+# posterior modes of middle five estimates are virtually zero
+
 # plot posterior densities
-par(mfrow=c(11,1))
-par(mar=c(1,2,1,2))
+par(mfrow = c(11,1))
+par(mar = c(1,2,1,2))
 for(p in 1:ncol(shrink2$draws$beta)){plot(density(shrink2$draws$beta[,p]),xlim=c(-10,10),
   main=colnames(shrink2$draws$beta)[p])}
+par(mfrow = old.par.mfrow)
+par(mar = old.par.mar)
 }
+
 }
 \references{
-Karimovo, D., Leenders, R., van Erp, S., and Mulder, J. (in prep.).
+Karimovo, van Erp, Leenders, and Mulder (2024). Honey, I Shrunk the Irrelevant Effects! Simple and Fast Approximate Bayesian
+Regularization. <https://doi.org/10.31234/osf.io/2g8qm>
 }
