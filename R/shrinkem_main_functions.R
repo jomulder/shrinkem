@@ -10,6 +10,11 @@
 #' types "ridge", "lasso", and "horseshoe", are supported.
 #' @param group A vector of integers denoting the group membership of the estimates, where each group receives
 #' a different global shrinkage parameter which is adapted to the observed data.
+#' @param unpenalized A logical vector of length equal to \code{x} flagging coefficients to leave
+#' unpenalized, i.e. given a flat prior so they receive no shrinkage (for example an intercept or
+#' baseline rate). Unpenalized coefficients are still re-estimated jointly with the rest and may move
+#' to preserve fit, but they are never pulled toward zero and do not contribute to the shrinkage
+#' parameters of their group. The default \code{NULL} penalizes all coefficients.
 #' @param cred.level The significance level that is used to check whether a parameter is nonzero depending on whether
 #' 0 is contained in the credible interval. The default is \code{cred.level = 0.95}.
 #' @param df1 First hyperparameter (degrees of freedom) of the prior for a shrinkage parameter lambda^2, which follows a F(df1,df2,scale2)
@@ -75,10 +80,24 @@
 #'   main=colnames(shrink2$draws$beta)[p])}
 #' par(mfrow = old.par.mfrow)
 #' par(mar = old.par.mar)
+#'
+#'# Bayesian horseshoe where first two and last two beta's are left unpenalized
+#' shrink3 <- shrinkem(estimates, covmatrix, type="horseshoe",
+#'    group=c(rep(0,2),rep(1,7),rep(0,2)))
+#' # posterior modes of middle five estimates are virtually zero
+#'
+#' # plot posterior densities
+#' par(mfrow = c(11,1))
+#' par(mar = c(1,2,1,2))
+#' for(p in 1:ncol(shrink3$draws$beta)){plot(density(shrink3$draws$beta[,p]),xlim=c(-10,10),
+#'   main=colnames(shrink3$draws$beta)[p])}
+#' par(mfrow = old.par.mfrow)
+#' par(mar = old.par.mar)
+
 #' }
 #'
 #' @export
-shrinkem <- function(x, Sigma, type, group,
+shrinkem <- function(x, Sigma, type, group, unpenalized,
                      iterations, burnin, store,
                      cred.level,
                      df1, df2, scale2,
@@ -92,7 +111,7 @@ shrinkem <- function(x, Sigma, type, group,
 
 #' @method shrinkem default
 #' @export
-shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
+shrinkem.default <- function(x, Sigma, type="horseshoe", group=1, unpenalized = NULL,
                      iterations = 5e4, burnin = 1e3, store = 1,
                      cred.level = .95,
                      df1=1, df2=1, scale2=1e3,
@@ -126,8 +145,20 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
     }
   }
 
+  if(is.null(unpenalized)){
+    unpenalized <- rep(FALSE, length(x))
+  }else{
+    if(!is.logical(unpenalized) || length(unpenalized) != length(x)){
+      stop("'unpenalized' must be a logical vector of the same length as 'x'.")
+    }
+    if(anyNA(unpenalized)){
+      stop("'unpenalized' must not contain NA.")
+    }
+  }
+
   if(type=="lasso"){
     Gibbsresults <- normal.lasso(estimate=x, covmatrix=Sigma, group=group,
+                                 unpenalized = unpenalized,
                                  iterations = iterations, burnin = burnin, store = store,
                                  a1 = df1/2, a2 = df2/2, b1 = scale2,
                                  lambda2.fixed = lambda2.fixed,
@@ -136,6 +167,7 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
   }
   if(type=="ridge"){
     Gibbsresults <- normal.ridge(estimate=x, covmatrix=Sigma, group=group,
+                                 unpenalized = unpenalized,
                                  iterations = iterations, burnin = burnin, store = store,
                                  a1 = df1/2, a2 = df2/2, b1 = scale2,
                                  lambda2.fixed = lambda2.fixed,
@@ -144,6 +176,7 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
   }
   if(type=="horseshoe"){
     Gibbsresults <- normal.horseshoe(estimate=x, covmatrix=Sigma, group=group,
+                                     unpenalized = unpenalized,
                                      iterations = iterations, burnin = burnin, store = store,
                                      a1 = df1/2, a2 = df2/2, b1 = scale2,
                                      a3 = .5, a4 = 0.5, b2 = 1,
@@ -202,21 +235,26 @@ NULL
 
 # Gibbs sampler for Bayesian (group) horseshoe
 normal.horseshoe <- function(estimate, covmatrix, group = 1,
+                             unpenalized = NULL,
                              iterations = 1e4, burnin = 1e3, store = 10,
                              a1 = .5, a2 = .5, b1 = 1,
                              a3 = .5, a4 = .5, b2 = 1,
-                             lambda2.fixed = FALSE, lambda2.input = NA, nugget){
+                             lambda2.fixed = FALSE, lambda2.input = NA,
+                             nugget){
 
   P <- length(estimate)
   if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
   if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
   if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
+  if(is.null(unpenalized)) unpenalized <- rep(FALSE, P)
+  pen <- as.integer(!unpenalized)
 
   group_idx <- match(group, unique(group)) - 1L
   numGroup  <- length(unique(group))
   li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
   out <- normal_horseshoe_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                              as.integer(pen),
                               iterations, burnin, store, a1, a2, b1, a3, a4, b2,
                               isTRUE(lambda2.fixed), as.numeric(li), nugget)
 
@@ -230,20 +268,25 @@ normal.horseshoe <- function(estimate, covmatrix, group = 1,
 
 # Gibbs sampler for Bayesian (group) lasso (Laplace prior)
 normal.lasso <- function(estimate, covmatrix, group = 1,
+                         unpenalized = NULL,
                          iterations = 1e4, burnin = 1e3, store = 10,
                          a1 = .5, a2 = .5, b1 = 1,
-                         lambda2.fixed = FALSE, lambda2.input = NA, nugget){
+                         lambda2.fixed = FALSE, lambda2.input = NA,
+                         nugget){
 
   P <- length(estimate)
   if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
   if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
   if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
+  if(is.null(unpenalized)) unpenalized <- rep(FALSE, P)
+  pen <- as.integer(!unpenalized)
 
   group_idx <- match(group, unique(group)) - 1L
   numGroup  <- length(unique(group))
   li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
   out <- normal_lasso_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                          as.integer(pen),
                           iterations, burnin, store, a1, a2, b1,
                           isTRUE(lambda2.fixed), as.numeric(li), nugget)
 
@@ -256,20 +299,25 @@ normal.lasso <- function(estimate, covmatrix, group = 1,
 
 # Gibbs sampler for Bayesian (group) ridge (normal prior)
 normal.ridge <- function(estimate, covmatrix, group = 1,
+                         unpenalized = NULL,
                          iterations = 1e4, burnin = 1e3, store = 10,
                          a1 = .5, a2 = .5, b1 = 1,
-                         lambda2.fixed = FALSE, lambda2.input = NA, nugget){
+                         lambda2.fixed = FALSE, lambda2.input = NA,
+                         nugget){
 
   P <- length(estimate)
   if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
   if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
   if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
+  if(is.null(unpenalized)) unpenalized <- rep(FALSE, P)
+  pen <- as.integer(!unpenalized)
 
   group_idx <- match(group, unique(group)) - 1L
   numGroup  <- length(unique(group))
   li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
   out <- normal_ridge_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                          as.integer(pen),
                           iterations, burnin, store, a1, a2, b1,
                           isTRUE(lambda2.fixed), as.numeric(li), nugget)
 

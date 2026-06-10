@@ -9,6 +9,7 @@ shrinkem(
   Sigma,
   type,
   group,
+  unpenalized,
   iterations,
   burnin,
   store,
@@ -32,6 +33,12 @@ types "ridge", "lasso", and "horseshoe", are supported.}
 
 \item{group}{A vector of integers denoting the group membership of the estimates, where each group receives
 a different global shrinkage parameter which is adapted to the observed data.}
+
+\item{unpenalized}{A logical vector of length equal to \code{x} flagging coefficients to leave
+unpenalized, i.e. given a flat prior so they receive no shrinkage (for example an intercept or
+baseline rate). Unpenalized coefficients are still re-estimated jointly with the rest and may move
+to preserve fit, but they are never pulled toward zero and do not contribute to the shrinkage
+parameters of their group. The default \code{NULL} penalizes all coefficients.}
 
 \item{iterations}{Number of posterior draws after burnin. Default = 5e4.}
 
@@ -111,6 +118,19 @@ par(mfrow = c(11,1))
 par(mar = c(1,2,1,2))
 for(p in 1:ncol(shrink2$draws$beta)){plot(density(shrink2$draws$beta[,p]),xlim=c(-10,10),
   main=colnames(shrink2$draws$beta)[p])}
+par(mfrow = old.par.mfrow)
+par(mar = old.par.mar)
+
+# Bayesian horseshoe where first two and last two beta's are left unpenalized
+shrink3 <- shrinkem(estimates, covmatrix, type="horseshoe",
+   group=c(rep(0,2),rep(1,7),rep(0,2)))
+# posterior modes of middle five estimates are virtually zero
+
+# plot posterior densities
+par(mfrow = c(11,1))
+par(mar = c(1,2,1,2))
+for(p in 1:ncol(shrink3$draws$beta)){plot(density(shrink3$draws$beta[,p]),xlim=c(-10,10),
+  main=colnames(shrink3$draws$beta)[p])}
 par(mfrow = old.par.mfrow)
 par(mar = old.par.mar)
 }

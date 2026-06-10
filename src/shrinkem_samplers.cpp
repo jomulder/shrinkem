@@ -5,6 +5,12 @@
 // Uses R's RNG stream throughout (R::rgamma / R::norm_rand / R::unif_rand),
 // so set.seed() works -- but draws will NOT be bit-identical to the R chain
 // (different RNG call order). Validate by posterior summaries, not by seed.
+//
+// `penalized` is a 0/1 vector (length P): 1 = shrink as usual, 0 = flat prior
+// (no shrinkage). Unpenalized coefficients get dinv = 0 in the beta update and
+// are excluded from their group's lambda2 update, so a large unpenalized
+// coefficient (e.g. the baseline rate) does not relax shrinkage for its
+// groupmates.
 
 #include <RcppArmadillo.h>
 // [[Rcpp::depends(RcppArmadillo)]]
@@ -12,7 +18,6 @@ using namespace Rcpp;
 using namespace arma;
 
 // X ~ InvGamma(shape, scale): density propto x^{-shape-1} exp(-scale/x)
-// (matches extraDistr::rinvgamma's (alpha, beta) = (shape, scale))
 static inline double rinvgamma1(double shape, double scale) {
   return 1.0 / R::rgamma(shape, 1.0 / scale);   // rgamma takes (shape, scale)
 }
@@ -41,11 +46,13 @@ static inline vec sample_beta(const mat& covInv, const vec& dinv, const vec& b) 
   return mu + solve(trimatu(R), z);       // Cov(R^{-1} z) = Q^{-1}
 }
 
-// build groups: members[g] = column indices with group_idx == g
-static std::vector<std::vector<uword>> build_groups(const ivec& group_idx, int numGroup) {
+// groups exclude unpenalized indices: members[g] = penalized columns in group g
+static std::vector<std::vector<uword>> build_groups(const ivec& group_idx,
+                                                    int numGroup,
+                                                    const uvec& pen) {
   std::vector<std::vector<uword>> members(numGroup);
   for (uword j = 0; j < group_idx.n_elem; ++j)
-    members[group_idx[j]].push_back(j);
+    if (pen[j] == 1u) members[group_idx[j]].push_back(j);
   return members;
 }
 
@@ -53,6 +60,7 @@ static std::vector<std::vector<uword>> build_groups(const ivec& group_idx, int n
 // [[Rcpp::export]]
 List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
                           const arma::ivec& group_idx, int numGroup,
+                          const arma::uvec& penalized,
                           int iterations, int burnin, int store,
                           double a1, double a2, double b1,
                           double a3, double a4, double b2,
@@ -61,7 +69,8 @@ List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   uword P = estimate.n_elem;
   mat covInv = inv_sympd(covmatrix);
   vec b = covInv * estimate;
-  auto members = build_groups(group_idx, numGroup);
+  vec pen_d = conv_to<vec>::from(penalized);     // 1 = penalize, 0 = flat prior
+  auto members = build_groups(group_idx, numGroup, penalized);
   vec lenGroup(numGroup, fill::zeros);
   for (int g = 0; g < numGroup; ++g) lenGroup[g] = (double) members[g].size();
 
@@ -76,7 +85,7 @@ List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   mat lam_S(nstore, numGroup), gam_S(nstore, numGroup);
 
   for (int t = 0; t < total; ++t) {
-    beta = sample_beta(covInv, 1.0 / (tau2 % lambda2vec), b);
+    beta = sample_beta(covInv, (1.0 / (tau2 % lambda2vec)) % pen_d, b);
 
     for (uword j = 0; j < P; ++j) {
       double scale = psi2[j] + beta[j] * beta[j] / (2.0 * lambda2vec[j]);
@@ -110,6 +119,7 @@ List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
 // [[Rcpp::export]]
 List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
                       const arma::ivec& group_idx, int numGroup,
+                      const arma::uvec& penalized,
                       int iterations, int burnin, int store,
                       double a1, double a2, double b1,
                       bool lambda2_fixed, const arma::vec& lambda2_input,
@@ -117,7 +127,8 @@ List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   uword P = estimate.n_elem;
   mat covInv = inv_sympd(covmatrix);
   vec b = covInv * estimate;
-  auto members = build_groups(group_idx, numGroup);
+  vec pen_d = conv_to<vec>::from(penalized);
+  auto members = build_groups(group_idx, numGroup, penalized);
   vec lenGroup(numGroup, fill::zeros);
   for (int g = 0; g < numGroup; ++g) lenGroup[g] = (double) members[g].size();
 
@@ -132,7 +143,7 @@ List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   mat lam_S(nstore, numGroup), gam_S(nstore, numGroup);
 
   for (int t = 0; t < total; ++t) {
-    beta = sample_beta(covInv, 1.0 / (tau2 % lambda2vec), b);
+    beta = sample_beta(covInv, (1.0 / (tau2 % lambda2vec)) % pen_d, b);
 
     for (uword j = 0; j < P; ++j) {
       double mu_tau = std::sqrt(lambda2vec[j] / (beta[j] * beta[j]));
@@ -161,6 +172,7 @@ List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
 // [[Rcpp::export]]
 List normal_ridge_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
                       const arma::ivec& group_idx, int numGroup,
+                      const arma::uvec& penalized,
                       int iterations, int burnin, int store,
                       double a1, double a2, double b1,
                       bool lambda2_fixed, const arma::vec& lambda2_input,
@@ -168,20 +180,22 @@ List normal_ridge_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   uword P = estimate.n_elem;
   mat covInv = inv_sympd(covmatrix);
   vec b = covInv * estimate;
-  auto members = build_groups(group_idx, numGroup);
-  vec lenGroup(numGroup, fill::zeros);
-  for (int g = 0; g < numGroup; ++g) lenGroup[g] = (double) members[g].size();
+  vec pen_d = conv_to<vec>::from(penalized);
 
   // fixed lambda2 -> posterior is exactly Gaussian; draw i.i.d. (no chain)
   if (lambda2_fixed) {
     vec lambda2vec(P);
     for (uword j = 0; j < P; ++j) lambda2vec[j] = lambda2_input[group_idx[j]];
-    vec dinv = 1.0 / lambda2vec;
+    vec dinv = (1.0 / lambda2vec) % pen_d;
     mat beta_S(iterations, P);
     for (int t = 0; t < iterations; ++t) beta_S.row(t) = sample_beta(covInv, dinv, b).t();
     return List::create(_["beta"] = beta_S, _["lambda2"] = R_NilValue,
                         _["gamma2"] = R_NilValue);
   }
+
+  auto members = build_groups(group_idx, numGroup, penalized);
+  vec lenGroup(numGroup, fill::zeros);
+  for (int g = 0; g < numGroup; ++g) lenGroup[g] = (double) members[g].size();
 
   vec lambda2(numGroup, fill::ones), gamma2(numGroup, fill::ones), beta = estimate;
   vec lambda2vec(P);
@@ -191,7 +205,7 @@ List normal_ridge_cpp(const arma::vec& estimate, const arma::mat& covmatrix,
   mat beta_S(nstore, P), lam_S(nstore, numGroup), gam_S(nstore, numGroup);
 
   for (int t = 0; t < total; ++t) {
-    beta = sample_beta(covInv, 1.0 / lambda2vec, b);
+    beta = sample_beta(covInv, (1.0 / lambda2vec) % pen_d, b);
     for (int g = 0; g < numGroup; ++g) {
       double ss = gamma2[g];
       for (uword k : members[g]) ss += beta[k] * beta[k] / 2.0;

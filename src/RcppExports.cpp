@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // normal_horseshoe_cpp
-List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, int iterations, int burnin, int store, double a1, double a2, double b1, double a3, double a4, double b2, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
-RcppExport SEXP _shrinkem_normal_horseshoe_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP a3SEXP, SEXP a4SEXP, SEXP b2SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
+List normal_horseshoe_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, const arma::uvec& penalized, int iterations, int burnin, int store, double a1, double a2, double b1, double a3, double a4, double b2, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
+RcppExport SEXP _shrinkem_normal_horseshoe_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP penalizedSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP a3SEXP, SEXP a4SEXP, SEXP b2SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -21,6 +21,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type covmatrix(covmatrixSEXP);
     Rcpp::traits::input_parameter< const arma::ivec& >::type group_idx(group_idxSEXP);
     Rcpp::traits::input_parameter< int >::type numGroup(numGroupSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type penalized(penalizedSEXP);
     Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
     Rcpp::traits::input_parameter< int >::type store(storeSEXP);
@@ -33,13 +34,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type lambda2_fixed(lambda2_fixedSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type lambda2_input(lambda2_inputSEXP);
     Rcpp::traits::input_parameter< double >::type nugget(nuggetSEXP);
-    rcpp_result_gen = Rcpp::wrap(normal_horseshoe_cpp(estimate, covmatrix, group_idx, numGroup, iterations, burnin, store, a1, a2, b1, a3, a4, b2, lambda2_fixed, lambda2_input, nugget));
+    rcpp_result_gen = Rcpp::wrap(normal_horseshoe_cpp(estimate, covmatrix, group_idx, numGroup, penalized, iterations, burnin, store, a1, a2, b1, a3, a4, b2, lambda2_fixed, lambda2_input, nugget));
     return rcpp_result_gen;
 END_RCPP
 }
 // normal_lasso_cpp
-List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, int iterations, int burnin, int store, double a1, double a2, double b1, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
-RcppExport SEXP _shrinkem_normal_lasso_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
+List normal_lasso_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, const arma::uvec& penalized, int iterations, int burnin, int store, double a1, double a2, double b1, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
+RcppExport SEXP _shrinkem_normal_lasso_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP penalizedSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -47,6 +48,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type covmatrix(covmatrixSEXP);
     Rcpp::traits::input_parameter< const arma::ivec& >::type group_idx(group_idxSEXP);
     Rcpp::traits::input_parameter< int >::type numGroup(numGroupSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type penalized(penalizedSEXP);
     Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
     Rcpp::traits::input_parameter< int >::type store(storeSEXP);
@@ -56,13 +58,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type lambda2_fixed(lambda2_fixedSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type lambda2_input(lambda2_inputSEXP);
     Rcpp::traits::input_parameter< double >::type nugget(nuggetSEXP);
-    rcpp_result_gen = Rcpp::wrap(normal_lasso_cpp(estimate, covmatrix, group_idx, numGroup, iterations, burnin, store, a1, a2, b1, lambda2_fixed, lambda2_input, nugget));
+    rcpp_result_gen = Rcpp::wrap(normal_lasso_cpp(estimate, covmatrix, group_idx, numGroup, penalized, iterations, burnin, store, a1, a2, b1, lambda2_fixed, lambda2_input, nugget));
     return rcpp_result_gen;
 END_RCPP
 }
 // normal_ridge_cpp
-List normal_ridge_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, int iterations, int burnin, int store, double a1, double a2, double b1, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
-RcppExport SEXP _shrinkem_normal_ridge_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
+List normal_ridge_cpp(const arma::vec& estimate, const arma::mat& covmatrix, const arma::ivec& group_idx, int numGroup, const arma::uvec& penalized, int iterations, int burnin, int store, double a1, double a2, double b1, bool lambda2_fixed, const arma::vec& lambda2_input, double nugget);
+RcppExport SEXP _shrinkem_normal_ridge_cpp(SEXP estimateSEXP, SEXP covmatrixSEXP, SEXP group_idxSEXP, SEXP numGroupSEXP, SEXP penalizedSEXP, SEXP iterationsSEXP, SEXP burninSEXP, SEXP storeSEXP, SEXP a1SEXP, SEXP a2SEXP, SEXP b1SEXP, SEXP lambda2_fixedSEXP, SEXP lambda2_inputSEXP, SEXP nuggetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -70,6 +72,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type covmatrix(covmatrixSEXP);
     Rcpp::traits::input_parameter< const arma::ivec& >::type group_idx(group_idxSEXP);
     Rcpp::traits::input_parameter< int >::type numGroup(numGroupSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type penalized(penalizedSEXP);
     Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
     Rcpp::traits::input_parameter< int >::type store(storeSEXP);
@@ -79,15 +82,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type lambda2_fixed(lambda2_fixedSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type lambda2_input(lambda2_inputSEXP);
     Rcpp::traits::input_parameter< double >::type nugget(nuggetSEXP);
-    rcpp_result_gen = Rcpp::wrap(normal_ridge_cpp(estimate, covmatrix, group_idx, numGroup, iterations, burnin, store, a1, a2, b1, lambda2_fixed, lambda2_input, nugget));
+    rcpp_result_gen = Rcpp::wrap(normal_ridge_cpp(estimate, covmatrix, group_idx, numGroup, penalized, iterations, burnin, store, a1, a2, b1, lambda2_fixed, lambda2_input, nugget));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_shrinkem_normal_horseshoe_cpp", (DL_FUNC) &_shrinkem_normal_horseshoe_cpp, 16},
-    {"_shrinkem_normal_lasso_cpp", (DL_FUNC) &_shrinkem_normal_lasso_cpp, 13},
-    {"_shrinkem_normal_ridge_cpp", (DL_FUNC) &_shrinkem_normal_ridge_cpp, 13},
+    {"_shrinkem_normal_horseshoe_cpp", (DL_FUNC) &_shrinkem_normal_horseshoe_cpp, 17},
+    {"_shrinkem_normal_lasso_cpp", (DL_FUNC) &_shrinkem_normal_lasso_cpp, 14},
+    {"_shrinkem_normal_ridge_cpp", (DL_FUNC) &_shrinkem_normal_ridge_cpp, 14},
     {NULL, NULL, 0}
 };
 
