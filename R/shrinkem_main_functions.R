@@ -18,13 +18,15 @@
 #' @param df2 Second hyperparameter (degrees of freedom) of the prior for a shrinkage parameter lambda^2, which follows a F(df1,df2,scale2)
 #' distribution. The default is \code{df2 = 1}.
 #' @param scale2 Second hyperparameter (scale parameter) of the prior for a shrinkage parameter lambda^2, which follows a F(df1,df2,scale2)
-#' distribution. The default is \code{df2 = 1e3}.
+#' distribution. The default is \code{scale2 = 1e3}.
 #' @param iterations Number of posterior draws after burnin. Default = 5e4.
 #' @param burnin Number of posterior draws in burnin. Default = 1e3.
 #' @param store Store every store-th draw from posterior. Default = 1 (implying that every draw is stored).
 #' @param lambda2.fixed Logical indicating whether the penalty parameters(s) is/are fixed. Default is FALSE.
 #' @param lambda2 Positive scalars of length equal to the number of groups in 'group'. The argument is only
 #' used if the argument 'lambda2.fixed' is 'TRUE'.
+#' @param nugget A small positive value close to 0 which is used to avoid numerically singular matrices.
+#' The default is \code{1e-8}.
 #' @param ... Parameters passed to and from other functions.
 #' @return The output is an object of class \code{shrinkem}. The object has elements:
 #' \itemize{
@@ -82,6 +84,7 @@ shrinkem <- function(x, Sigma, type, group,
                      df1, df2, scale2,
                      lambda2.fixed,
                      lambda2,
+                     nugget,
                      ...) {
   UseMethod("shrinkem", x)
 }
@@ -95,6 +98,7 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
                      df1=1, df2=1, scale2=1e3,
                      lambda2.fixed = FALSE,
                      lambda2 = NA,
+                     nugget = 1e-8,
                      ...){
 
   if(is.na(lambda2.fixed)){
@@ -127,14 +131,16 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
                                  iterations = iterations, burnin = burnin, store = store,
                                  a1 = df1/2, a2 = df2/2, b1 = scale2,
                                  lambda2.fixed = lambda2.fixed,
-                                 lambda2.input = lambda2)
+                                 lambda2.input = lambda2,
+                                 nugget = nugget)
   }
   if(type=="ridge"){
     Gibbsresults <- normal.ridge(estimate=x, covmatrix=Sigma, group=group,
                                  iterations = iterations, burnin = burnin, store = store,
                                  a1 = df1/2, a2 = df2/2, b1 = scale2,
                                  lambda2.fixed = lambda2.fixed,
-                                 lambda2.input = lambda2)
+                                 lambda2.input = lambda2,
+                                 nugget = nugget)
   }
   if(type=="horseshoe"){
     Gibbsresults <- normal.horseshoe(estimate=x, covmatrix=Sigma, group=group,
@@ -142,7 +148,8 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
                                      a1 = df1/2, a2 = df2/2, b1 = scale2,
                                      a3 = .5, a4 = 0.5, b2 = 1,
                                      lambda2.fixed = lambda2.fixed,
-                                     lambda2.input = lambda2)
+                                     lambda2.input = lambda2,
+                                     nugget = nugget)
   }
   if(sum(type==c("lasso","ridge","horseshoe"))==0){
     stop("argument 'type' must be 'lasso', 'ridge', or 'horseshoe'.")
@@ -191,7 +198,8 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
                              a1 = .5, a2 = 0.5, b1 = 1,
                              a3 = .5, a4 = 0.5, b2 = 1,
                              lambda2.fixed = FALSE,
-                             lambda2.input = NA){
+                             lambda2.input = NA,
+                             nugget){
 
   # Define dimensions
   P <- length(estimate) # number of covariates without intercept
@@ -238,10 +246,7 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
   covmatrixInv <- solve(covmatrix)
 
-  #nugget for avoiding singular covariance matrix
-  nugget <- 1e-8
-
-  message("MCMC burnin")
+  #message("MCMC burnin")
   # Sampler iterations ----
   # pb = txtProgressBar(min = 0, max = burnin, initial = 0)
   for (t in 1:burnin){
@@ -261,11 +266,12 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
     # Sample lambda2 & gamma2
     if(!lambda2.fixed){
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
     }
-    lambda2vec <- c(lambda2 %*% whichGroupMat)
+    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
@@ -274,7 +280,7 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
 
   }
 
-  message("MCMC sampling")
+  #message("MCMC sampling")
   #cat("\n")
   #print("Start posterior sampling ... ")
   # Sampler iterations ----
@@ -297,11 +303,12 @@ normal.horseshoe <- function(estimate, covmatrix, group=1,
     # Sample lambda2 & gamma2
     if(!lambda2.fixed){
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
     }
-    lambda2vec <- c(lambda2 %*% whichGroupMat)
+    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
@@ -334,7 +341,8 @@ normal.lasso <- function(estimate, covmatrix, group=1,
                          iterations = 1e4, burnin = 1e3, store = 10,
                          a1 = .5, a2 = 0.5, b1 = 1,
                          lambda2.fixed = FALSE,
-                         lambda2.input = NA){
+                         lambda2.input = NA,
+                         nugget){
 
   P <- length(estimate) # number of covariates without intercept
   if(is.null(names(estimate))){
@@ -385,7 +393,7 @@ normal.lasso <- function(estimate, covmatrix, group=1,
   #print("Start burnin ... ")
   # Sampler iterations ----
   #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
-  message("MCMC burnin")
+  #message("MCMC burnin")
   for (t in 1:burnin){
     # 1. sample beta
     var_beta <- solve(covmatrixInv + D_inv)
@@ -395,16 +403,17 @@ normal.lasso <- function(estimate, covmatrix, group=1,
     # 3. Sample 1/tau^2
     mu_tau <- sqrt(lambda2vec/beta^2)
     tau2 <- 1/brms::rinv_gaussian(P, mu = mu_tau, shape = 1)
-    #tau2 <- tau2 + nugget
+    tau2 <- tau2 + nugget
 
     # 4. Sample lambda2 & gamma2
     if(!lambda2.fixed){
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
     }
-    lambda2vec <- c(lambda2 %*% whichGroupMat)
+    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
@@ -412,7 +421,7 @@ normal.lasso <- function(estimate, covmatrix, group=1,
     #setTxtProgressBar(pb,t)
   }
 
-  message("MCMC sampling")
+  #message("MCMC sampling")
   #cat("\n")
   #print("Start posterior sampling ... ")
   # Sampler iterations ----
@@ -427,16 +436,17 @@ normal.lasso <- function(estimate, covmatrix, group=1,
     # 3. Sample 1/tau^2
     mu_tau <- sqrt(lambda2vec/beta^2)
     tau2 <- 1/brms::rinv_gaussian(P, mu = mu_tau, shape = 1)
-    #tau2 <- tau2 + nugget
+    tau2 <- tau2 + nugget
 
     # 4. Sample lambda2 & gamma2
     if(!lambda2.fixed){
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
     }
-    lambda2vec <- c(lambda2 %*% whichGroupMat)
+    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
     # update conditional prior covariance matrix
     D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
@@ -470,7 +480,8 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
                          iterations = 1e4, burnin = 1e3, store = 10,
                          a1 = .5, a2 = 0.5, b1 = 1,
                          lambda2.fixed = FALSE,
-                         lambda2.input = NA){
+                         lambda2.input = NA,
+                         nugget){
 
   P <- length(estimate) # number of covariates without intercept
   if(is.null(names(estimate))){
@@ -517,7 +528,7 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
     #print("Start burnin ... ")
     # Sampler iterations ----
     #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
-    message("MCMC burnin")
+    #message("MCMC burnin")
     for (t in 1:burnin){
 
       # sample beta
@@ -527,10 +538,11 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
 
       # 4. Sample lambda2 & gamma2
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/2) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/2) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
-      lambda2vec <- c(lambda2 %*% whichGroupMat)
+      lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
       # update conditional prior covariance matrix
       D_inv <- diag(1/lambda2vec,nrow=P)
@@ -542,7 +554,7 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
     #print("Start posterior sampling ... ")
     # Sampler iterations ----
     #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
-    message("MCMC sampling")
+    #message("MCMC sampling")
     storecount <- 0
     for (t in 1:iterations){
 
@@ -553,10 +565,11 @@ normal.ridge <- function(estimate, covmatrix, group = 1,
 
       # 4. Sample lambda2 & gamma2
       for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] + sum(beta[whichGroup[[gr]]]^2/2) )
+        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
+                                               sum(beta[whichGroup[[gr]]]^2/2) )
         gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
       }
-      lambda2vec <- c(lambda2 %*% whichGroupMat)
+      lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
 
       # update conditional prior covariance matrix
       D_inv <- diag(1/lambda2vec,nrow=P)
@@ -699,7 +712,21 @@ rmvF <- function(n,df1,df2,B){
 }
 
 get.mode <- function(draws){
-  dens <- density(draws)
-  dens$x[which(max(dens$y)==dens$y)[1]]
+  draws <- draws[is.finite(draws)]
+  bw <- tryCatch(stats::bw.SJ(draws), error = function(e) stats::bw.nrd0(draws))
+  dens <- stats::density(draws, bw = bw, n = 2048)
+  dens$x[which.max(dens$y)]
+}
+
+#' @importFrom logspline logspline qlogspline dlogspline
+get.mode.logspline <- function(x){
+  fit <- logspline(x,error.action=1)
+  u1 <- qlogspline(0.01, fit)
+  u2 <- qlogspline(0.99, fit)
+  u3 <- 1.1 * u1 - 0.1 * u2
+  u4 <- 1.1 * u2 - 0.1 * u1
+  xx <- (0:(100 - 1))/(100 - 1) * (u4 - u3) + u3
+  yy <- dlogspline(xx, fit)
+  xx[which(yy==max(yy))]
 }
 

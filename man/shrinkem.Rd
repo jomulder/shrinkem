@@ -18,6 +18,7 @@ shrinkem(
   scale2,
   lambda2.fixed,
   lambda2,
+  nugget,
   ...
 )
 }
@@ -49,12 +50,15 @@ and scale parameter \code{sqrt(scale2/df2)}.}
 distribution. The default is \code{df2 = 1}.}
 
 \item{scale2}{Second hyperparameter (scale parameter) of the prior for a shrinkage parameter lambda^2, which follows a F(df1,df2,scale2)
-distribution. The default is \code{df2 = 1e3}.}
+distribution. The default is \code{scale2 = 1e3}.}
 
 \item{lambda2.fixed}{Logical indicating whether the penalty parameters(s) is/are fixed. Default is FALSE.}
 
 \item{lambda2}{Positive scalars of length equal to the number of groups in 'group'. The argument is only
 used if the argument 'lambda2.fixed' is 'TRUE'.}
+
+\item{nugget}{A small positive value close to 0 which is used to avoid numerically singular matrices.
+The default is \code{1e-8}.}
 
 \item{...}{Parameters passed to and from other functions.}
 }
