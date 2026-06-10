@@ -165,7 +165,7 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
   estimates <- data.frame(
       input.est=x,
       shrunk.mean=apply(Gibbsresults$beta,2,mean),
-      shrunk.median=apply(Gibbsresults$beta,2,mean),
+      shrunk.median=apply(Gibbsresults$beta,2,stats::median),
       shrunk.mode=apply(Gibbsresults$beta,2,get.mode),
       shrunk.lower=apply(Gibbsresults$beta,2,quantile,(1-cred.level)/2),
       shrunk.upper=apply(Gibbsresults$beta,2,quantile,1-(1-cred.level)/2),
@@ -186,419 +186,97 @@ shrinkem.default <- function(x, Sigma, type="horseshoe", group=1,
   return(shrinkem_out)
 }
 
-# Gibbs sampler for Bayesian (group) horseshoe
-#' @importFrom stats density
-#' @importFrom stats quantile
-#' @importFrom mvtnorm rmvnorm
+
+# ---------------------------------------------------------------------------
+# Gibbs samplers (C++ backends in src/shrinkem_samplers.cpp).
+# The R functions below are thin wrappers: they handle group bookkeeping and
+# re-attach the column names that downstream code expects, then call the
+# compiled samplers.
+# ---------------------------------------------------------------------------
+
+#' @useDynLib shrinkem, .registration = TRUE
+#' @importFrom Rcpp sourceCpp
+#' @importFrom stats density quantile rgamma
 #' @importFrom extraDistr rinvgamma
-#' @importFrom stats rgamma
-#' @importFrom brms rinv_gaussian
-normal.horseshoe <- function(estimate, covmatrix, group=1,
+NULL
+
+# Gibbs sampler for Bayesian (group) horseshoe
+normal.horseshoe <- function(estimate, covmatrix, group = 1,
                              iterations = 1e4, burnin = 1e3, store = 10,
-                             a1 = .5, a2 = 0.5, b1 = 1,
-                             a3 = .5, a4 = 0.5, b2 = 1,
-                             lambda2.fixed = FALSE,
-                             lambda2.input = NA,
-                             nugget){
+                             a1 = .5, a2 = .5, b1 = 1,
+                             a3 = .5, a4 = .5, b2 = 1,
+                             lambda2.fixed = FALSE, lambda2.input = NA, nugget){
 
-  # Define dimensions
-  P <- length(estimate) # number of covariates without intercept
-  if(is.null(names(estimate))){
-    names(estimate) <- paste0("beta",1:P)
-  }
-  if(is.na(group[1])){
-    group <- rep(1,P)
-  }
-  if(length(group)==1){
-    group <- rep(1,P)
-  }
-  if(length(group)!=P){
-    stop("length of 'group' differs from length of 'estimate'")
-  }
-  groupIndices <- unique(group)
-  numGroup <- length(groupIndices)
-  whichGroup <- lapply(1:numGroup,function(gr){
-    groupIndices[gr] == group
-  })
-  whichGroupMat <- do.call(rbind,whichGroup)
-  lenthGroup <- unlist(lapply(whichGroup,sum))
+  P <- length(estimate)
+  if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
+  if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
+  if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
 
-  # Define the vectors to store the results
-  beta_STORE <- matrix(0,nrow = iterations/store, ncol = P)
-  colnames(beta_STORE) <- names(estimate)
-  tau2_STORE <- psi2_STORE <- matrix(0,nrow = iterations/store, ncol = P)
-  lambda2_STORE <- gamma2_STORE <- matrix(0,nrow = iterations/store, ncol = numGroup)
-  colnames(lambda2_STORE) <- paste0("lambda2_",1:numGroup)
-  colnames(gamma2_STORE) <- paste0("gamma2_",1:numGroup)
-  colnames(tau2_STORE) <- paste0("tau2_",1:P)
-  colnames(psi2_STORE) <- paste0("psi2_",1:P)
+  group_idx <- match(group, unique(group)) - 1L
+  numGroup  <- length(unique(group))
+  li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
-  # initialize parameters
-  if(!lambda2.fixed){
-    lambda2 <- gamma2 <- rep(1,numGroup)
-  }else{
-    lambda2 <- gamma2 <- lambda2.input
-  }
-  tau2 <- psi2 <- rep(1, P)
-  lambda2vec <- c(lambda2 %*% whichGroupMat)
-  D_inv <- diag(1 / (tau2 * lambda2vec))
-  beta <- estimate
+  out <- normal_horseshoe_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                              iterations, burnin, store, a1, a2, b1, a3, a4, b2,
+                              isTRUE(lambda2.fixed), as.numeric(li), nugget)
 
-  covmatrixInv <- solve(covmatrix)
-
-  #message("MCMC burnin")
-  # Sampler iterations ----
-  # pb = txtProgressBar(min = 0, max = burnin, initial = 0)
-  for (t in 1:burnin){
-
-    # Sample beta
-    var_beta <- solve(covmatrixInv + D_inv)
-    mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-    beta <- c(rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-    # Sample tau2
-    tau2 <- rinvgamma(P, a3 + .5, psi2 + beta**2/(2*lambda2vec))
-    tau2 <- tau2 + nugget
-
-    # Sample psi2 (mixing parameter of tau2)
-    psi2 <- stats::rgamma(P, shape = a3 + a4, rate = 1/b2 + 1/tau2)
-
-    # Sample lambda2 & gamma2
-    if(!lambda2.fixed){
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-    }
-    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-    # update conditional prior covariance matrix
-    D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
-
-    #setTxtProgressBar(pb,t)
-
-  }
-
-  #message("MCMC sampling")
-  #cat("\n")
-  #print("Start posterior sampling ... ")
-  # Sampler iterations ----
-  #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
-  storecount <- 0
-  for (t in 1:iterations){
-
-    # Sample beta
-    var_beta <- solve(covmatrixInv + D_inv)
-    mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-    beta <- c(rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-    # Sample tau2
-    tau2 <- rinvgamma(P, a3 + .5, psi2 + beta**2/(2*lambda2vec))
-    tau2 <- tau2 + nugget
-
-    # Sample psi2 (mixing parameter of tau2)
-    psi2 <- stats::rgamma(P, shape = a3 + a4, rate = 1/b2 + 1/tau2)
-
-    # Sample lambda2 & gamma2
-    if(!lambda2.fixed){
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-    }
-    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-    # update conditional prior covariance matrix
-    D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
-
-    #print(c(tau2,lambda2))
-
-    # save each 'store' iterations
-    if (t%%store == 0){
-      #update store counter
-      storecount <- storecount + 1
-      #store draws
-      beta_STORE[storecount,] <- beta
-      tau2_STORE[storecount,] <- tau2
-      lambda2_STORE[storecount,] <- lambda2
-      gamma2_STORE[storecount,] <- gamma2
-      psi2_STORE[storecount,] <- psi2
-
-    }
-    ###################
-
-    #setTxtProgressBar(pb,t)
-  }
-
-  return(list(beta = beta_STORE, tau2 = tau2_STORE, gamma2 = gamma2_STORE,
-              psi2 = psi2_STORE, lambda2 = lambda2_STORE))
+  colnames(out$beta)    <- names(estimate)
+  colnames(out$tau2)    <- paste0("tau2_", 1:P)
+  colnames(out$psi2)    <- paste0("psi2_", 1:P)
+  colnames(out$lambda2) <- paste0("lambda2_", 1:numGroup)
+  colnames(out$gamma2)  <- paste0("gamma2_", 1:numGroup)
+  out
 }
 
-# Gibbs sampler for Bayesian (group) lasso (LaPlace prior)
-normal.lasso <- function(estimate, covmatrix, group=1,
+# Gibbs sampler for Bayesian (group) lasso (Laplace prior)
+normal.lasso <- function(estimate, covmatrix, group = 1,
                          iterations = 1e4, burnin = 1e3, store = 10,
-                         a1 = .5, a2 = 0.5, b1 = 1,
-                         lambda2.fixed = FALSE,
-                         lambda2.input = NA,
-                         nugget){
+                         a1 = .5, a2 = .5, b1 = 1,
+                         lambda2.fixed = FALSE, lambda2.input = NA, nugget){
 
-  P <- length(estimate) # number of covariates without intercept
-  if(is.null(names(estimate))){
-    names(estimate) <- paste0("beta",1:P)
-  }
-  if(is.na(group[1])){
-    group <- rep(1,P)
-  }
-  if(length(group)==1){
-    group <- rep(1,P)
-  }
-  if(length(group)!=P){
-    stop("length of 'group' differs from length of 'estimate'")
-  }
-  groupIndices <- unique(group)
-  numGroup <- length(groupIndices)
-  whichGroup <- lapply(1:numGroup,function(gr){
-    groupIndices[gr] == group
-  })
-  whichGroupMat <- do.call(rbind,whichGroup)
-  lenthGroup <- unlist(lapply(whichGroup,sum))
+  P <- length(estimate)
+  if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
+  if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
+  if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
 
-  # Define the vectors to store the results
-  beta_STORE <- matrix(0,nrow = iterations/store, ncol = P)
-  colnames(beta_STORE) <- names(estimate)
-  lambda2_STORE <- gamma2_STORE <- matrix(0,nrow = iterations/store, ncol = numGroup)
-  colnames(lambda2_STORE) <- paste0("lambda2_",1:numGroup)
-  colnames(gamma2_STORE) <- paste0("gamma2_",1:numGroup)
-  tau2_STORE <- matrix(0,nrow = iterations/store, ncol = P)
-  colnames(tau2_STORE) <- paste0("tau2_",1:P)
+  group_idx <- match(group, unique(group)) - 1L
+  numGroup  <- length(unique(group))
+  li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
-  # initial values
-  if(!lambda2.fixed){
-    lambda2 <- gamma2 <- rep(1,numGroup)
-  }else{
-    lambda2 <- gamma2 <- lambda2.input
-  }
-  tau2 <- rep(1, P)
-  lambda2vec <- c(lambda2 %*% whichGroupMat)
-  D_inv <- diag(1/(tau2*lambda2vec))
-  beta <- estimate
+  out <- normal_lasso_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                          iterations, burnin, store, a1, a2, b1,
+                          isTRUE(lambda2.fixed), as.numeric(li), nugget)
 
-  covmatrixInv <- solve(covmatrix)
-
-  #nugget for avoiding singular covariance matrix
-  #nugget <- 1e-8
-
-  #print("Start burnin ... ")
-  # Sampler iterations ----
-  #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
-  #message("MCMC burnin")
-  for (t in 1:burnin){
-    # 1. sample beta
-    var_beta <- solve(covmatrixInv + D_inv)
-    mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-    beta <- c(rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-    # 3. Sample 1/tau^2
-    mu_tau <- sqrt(lambda2vec/beta^2)
-    tau2 <- 1/brms::rinv_gaussian(P, mu = mu_tau, shape = 1)
-    tau2 <- tau2 + nugget
-
-    # 4. Sample lambda2 & gamma2
-    if(!lambda2.fixed){
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-    }
-    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-    # update conditional prior covariance matrix
-    D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
-
-    #setTxtProgressBar(pb,t)
-  }
-
-  #message("MCMC sampling")
-  #cat("\n")
-  #print("Start posterior sampling ... ")
-  # Sampler iterations ----
-  #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
-  storecount <- 0
-  for (t in 1:iterations){
-    # 1. sample beta
-    var_beta <- solve(covmatrixInv + D_inv)
-    mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-    beta <- c(rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-    # 3. Sample 1/tau^2
-    mu_tau <- sqrt(lambda2vec/beta^2)
-    tau2 <- 1/brms::rinv_gaussian(P, mu = mu_tau, shape = 1)
-    tau2 <- tau2 + nugget
-
-    # 4. Sample lambda2 & gamma2
-    if(!lambda2.fixed){
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/(2*tau2[whichGroup[[gr]]])) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-    }
-    lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-    # update conditional prior covariance matrix
-    D_inv <- diag(1/(tau2 * lambda2vec),nrow=P)
-
-    # save each 'store' iterations
-    if (t%%store == 0){
-      #update store counter
-      storecount <- storecount + 1
-      #store draws
-      beta_STORE[storecount,] <- beta
-      lambda2_STORE[storecount,] <- lambda2
-      tau2_STORE[storecount,] <- tau2
-      gamma2_STORE[storecount,] <- gamma2
-
-    }
-    ###################
-
-    #setTxtProgressBar(pb,t)
-  }
-
-  colnames(beta_STORE) <- names(estimate)
-
-  return(list(beta = beta_STORE,
-              lambda2 = lambda2_STORE,
-              gamma2 = gamma2_STORE,
-              tau2 = tau2_STORE))
+  colnames(out$beta)    <- names(estimate)
+  colnames(out$tau2)    <- paste0("tau2_", 1:P)
+  colnames(out$lambda2) <- paste0("lambda2_", 1:numGroup)
+  colnames(out$gamma2)  <- paste0("gamma2_", 1:numGroup)
+  out
 }
 
 # Gibbs sampler for Bayesian (group) ridge (normal prior)
 normal.ridge <- function(estimate, covmatrix, group = 1,
                          iterations = 1e4, burnin = 1e3, store = 10,
-                         a1 = .5, a2 = 0.5, b1 = 1,
-                         lambda2.fixed = FALSE,
-                         lambda2.input = NA,
-                         nugget){
+                         a1 = .5, a2 = .5, b1 = 1,
+                         lambda2.fixed = FALSE, lambda2.input = NA, nugget){
 
-  P <- length(estimate) # number of covariates without intercept
-  if(is.null(names(estimate))){
-    names(estimate) <- paste0("beta",1:P)
-  }
-  if(is.na(group[1])){
-    group <- rep(1,P)
-  }
-  if(length(group)==1){
-    group <- rep(1,P)
-  }
-  if(length(group)!=P){
-    stop("length of 'group' differs from length of 'estimate'")
-  }
-  groupIndices <- unique(group)
-  numGroup <- length(groupIndices)
-  whichGroup <- lapply(1:numGroup,function(gr){
-    groupIndices[gr] == group
-  })
-  whichGroupMat <- do.call(rbind,whichGroup)
-  lenthGroup <- unlist(lapply(whichGroup,sum))
+  P <- length(estimate)
+  if(is.null(names(estimate))) names(estimate) <- paste0("beta", 1:P)
+  if(is.na(group[1]) || length(group) == 1) group <- rep(1, P)
+  if(length(group) != P) stop("length of 'group' differs from length of 'estimate'")
 
-  # Define the vectors to store the results
-  beta_STORE <- matrix(0,nrow = iterations/store, ncol = P)
-  lambda2_STORE <- gamma2_STORE <- matrix(0,nrow = iterations/store, ncol = numGroup)
-  colnames(lambda2_STORE) <- paste0("lambda2_",1:numGroup)
-  colnames(gamma2_STORE) <- paste0("gamma2_",1:numGroup)
+  group_idx <- match(group, unique(group)) - 1L
+  numGroup  <- length(unique(group))
+  li <- if(isTRUE(lambda2.fixed)) lambda2.input else rep(1, numGroup)
 
-  # initial values
-  if(!lambda2.fixed){
-    lambda2 <- gamma2 <- rep(1,numGroup)
-  }else{
-    lambda2 <- gamma2 <- lambda2.input
-  }
-  lambda2vec <- c(lambda2 %*% whichGroupMat)
-  D_inv <- diag(1/lambda2vec)
-  beta <- estimate
+  out <- normal_ridge_cpp(estimate, covmatrix, as.integer(group_idx), numGroup,
+                          iterations, burnin, store, a1, a2, b1,
+                          isTRUE(lambda2.fixed), as.numeric(li), nugget)
 
-  covmatrixInv <- solve(covmatrix)
-  var_beta <- solve(covmatrixInv + D_inv)
-  mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-
-  if(!lambda2.fixed){
-    #print("Start burnin ... ")
-    # Sampler iterations ----
-    #pb = txtProgressBar(min = 0, max = burnin, initial = 0)
-    #message("MCMC burnin")
-    for (t in 1:burnin){
-
-      # sample beta
-      var_beta <- solve(covmatrixInv + D_inv)
-      mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-      beta <- c(mvtnorm::rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-      # 4. Sample lambda2 & gamma2
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/2) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-      lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-      # update conditional prior covariance matrix
-      D_inv <- diag(1/lambda2vec,nrow=P)
-
-      #setTxtProgressBar(pb,t)
-    }
-
-    #cat("\n")
-    #print("Start posterior sampling ... ")
-    # Sampler iterations ----
-    #pb = txtProgressBar(min = 0, max = iterations, initial = 0)
-    #message("MCMC sampling")
-    storecount <- 0
-    for (t in 1:iterations){
-
-      # sample beta
-      var_beta <- solve(covmatrixInv + D_inv)
-      mu_beta <- c(var_beta %*% covmatrixInv %*% estimate)
-      beta <- c(rmvnorm(1, mean = mu_beta, sigma = var_beta))
-
-      # 4. Sample lambda2 & gamma2
-      for(gr in 1:numGroup){
-        lambda2[gr] <- extraDistr::rinvgamma(1, a1 + lenthGroup[gr]/2, gamma2[gr] +
-                                               sum(beta[whichGroup[[gr]]]^2/2) )
-        gamma2[gr] <- stats::rgamma(1, shape = a1 + a2, rate = 1/b1 + 1/lambda2[gr])
-      }
-      lambda2vec <- c(lambda2 %*% whichGroupMat) + nugget
-
-      # update conditional prior covariance matrix
-      D_inv <- diag(1/lambda2vec,nrow=P)
-
-      # save each 'store' iterations
-      if (t%%store == 0){
-        #update store counter
-        storecount <- storecount + 1
-        #store draws
-        beta_STORE[storecount,] <- beta
-        lambda2_STORE[storecount,] <- lambda2
-        gamma2_STORE[storecount,] <- gamma2
-      }
-      ###################
-
-      #setTxtProgressBar(pb,t)
-    }
-
-  }else{ # because lambda2 is fixed no iterative sampling is required
-    beta_STORE <- mvtnorm::rmvnorm(iterations, mean = mu_beta, sigma = var_beta)
-    lambda2_STORE <- NULL
-    gamma2_STORE <- NULL
-  }
-
-  colnames(beta_STORE) <- names(estimate)
-
-  return(list(beta = beta_STORE,
-              lambda2 = lambda2_STORE,
-              gamma2 = gamma2_STORE))
+  colnames(out$beta) <- names(estimate)
+  if(!is.null(out$lambda2)) colnames(out$lambda2) <- paste0("lambda2_", 1:numGroup)
+  if(!is.null(out$gamma2)) colnames(out$gamma2)  <- paste0("gamma2_", 1:numGroup)
+  out
 }
 
 
@@ -729,4 +407,3 @@ get.mode.logspline <- function(x){
   yy <- dlogspline(xx, fit)
   xx[which(yy==max(yy))]
 }
-
