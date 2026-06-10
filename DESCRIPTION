@@ -46,4 +46,4 @@ LinkingTo:
     Rcpp,
     RcppArmadillo
 Suggests: 
-    testthat
+    tinytest
