@@ -14,16 +14,21 @@ Authors@R: c(person(given = c("Joris"),
       person(given = "Sara",
              family = "van Erp",
              role = c("ctb"),
-             email = "s.j.vanerp@uu.nl")       
+             email = "s.j.vanerp@uu.nl"),
+      person(given = "Roger",
+             family = "Leenders",
+             role = c("ctb"),
+             email = "r.t.a.j.leenders@tilburguniversity.edu")  
              )
 Author: Joris Mulder [aut, cre],
   Diana Karimova [aut, ctb],
-  Sara van Erp [ctb]
+  Sara van Erp [ctb],
+  Roger Leenders [ctb]
 Maintainer: Joris Mulder <j.mulder3@tilburguniversity.edu>
 Description: Approximate Bayesian regularization using Gaussian approximations. The input is a vector of estimates
              and a Gaussian error covariance matrix of the key parameters. Bayesian shrinkage is then applied
              to obtain parsimonious solutions. The method is described on 
-             Karimova, van Erp, Leenders, and Mulder (2024) <DOI:10.31234/osf.io/2g8qm>. Gibbs samplers are used
+             Karimova, van Erp, Leenders, and Mulder (2025) <DOI:10.1016/j.jmp.2025.102925>. Gibbs samplers are used
              for model fitting. The shrinkage priors that are supported are Gaussian (ridge) priors, Laplace
              (lasso) priors (Park and Casella, 2008 <DOI:10.1198/016214508000000337>), and horseshoe priors
              (Carvalho, et al., 2010; <DOI:10.1093/biomet/asq017>). These priors include an option
