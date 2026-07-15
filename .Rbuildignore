@@ -3,4 +3,5 @@
 ^\.Rproj\.user$
 cran-comments.md
 .github
+^NEWS\.md$
 ^CRAN-SUBMISSION$
