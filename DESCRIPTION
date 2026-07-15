@@ -1,8 +1,8 @@
 Package: shrinkem
 Type: Package
 Title: Approximate Bayesian Regularization for Parsimonious Estimates
-Date: 2026-06-10
-Version: 0.3.0
+Date: 2026-07-15
+Version: 0.4.0
 Authors@R: c(person(given = c("Joris"),
              family = "Mulder",
              role = c("aut", "cre"),

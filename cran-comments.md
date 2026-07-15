@@ -1,10 +1,8 @@
-# shrinkem 0.3.0
-* Date: 2026-06-10
+# shrinkem 0.4.0
+* Date: 2026-07-15
 
 ## Submission comment
-This is a minor update. The internal Gibbs samplers have been
-reimplemented in C++ (Rcpp/RcppArmadillo) for performance; the
-user-facing interface and output are unchanged.
+Added a new argument 'unpenalized'. Used in new (to be) submitted version of 'remstimate'.
 
 ## Test environments
 * Local OS X Tahoe 26.2, R 4.5.3, clang-1400.0.29.202, GNU Fortran 12.2.0
